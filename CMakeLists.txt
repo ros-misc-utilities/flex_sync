@@ -25,6 +25,7 @@ find_package(ament_cmake REQUIRED)
 find_package(ament_cmake_ros REQUIRED)
 find_package(ament_cmake_auto REQUIRED)
 
+
 set(ament_dependencies
   "rclcpp")
 
@@ -74,6 +75,7 @@ if(BUILD_TESTING)
   # ----------- setup gtests
   find_package(ament_cmake_gtest REQUIRED)
   find_package(std_msgs REQUIRED)
+  find_package(geometry_msgs REQUIRED)
   set(SYNC_TEST "${PROJECT_NAME}_sync_test")
   ament_add_gtest(${SYNC_TEST}
     test/sync_test.cpp
@@ -82,7 +84,7 @@ if(BUILD_TESTING)
     $<BUILD_INTERFACE:${CMAKE_CURRENT_SOURCE_DIR}/include>
   $<INSTALL_INTERFACE:include>)
   target_compile_features(${SYNC_TEST} PRIVATE cxx_std_17)
-  ament_target_dependencies(${SYNC_TEST} std_msgs rclcpp)
+  ament_target_dependencies(${SYNC_TEST} std_msgs geometry_msgs rclcpp)
   target_link_libraries(${SYNC_TEST} ${PROJECT_NAME})
 endif()
 

@@ -55,7 +55,7 @@ class ExactSync
   typedef std::tuple<TypeInfo<const MsgTypes>...> TupleOfTypeInfo;
 
 public:
-  // Expose the messsage types
+  // Expose the message types
   using message_types = MsgPack<MsgTypes...>;
   // the signature of the callback function depends on the MsgTypes template
   // parameter.
@@ -109,7 +109,7 @@ public:
   // Once enough data is available the callback function will
   // be called.
   template <typename MsgPtrT>
-  void process(const std::string & topic, const MsgPtrT & msg)
+  void process(const std::string & topic, const MsgPtrT msg)
   {
     typedef TypeInfo<typename MsgPtrT::element_type const> TypeInfoT;
     typedef std::vector<std::shared_ptr<typename MsgPtrT::element_type const>>

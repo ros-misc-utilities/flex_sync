@@ -16,6 +16,8 @@
 #pragma once
 
 #include <flex_sync/msg_pack.hpp>
+#include <geometry_msgs/msg/vector3_stamped.hpp>
+#include <rclcpp/rclcpp.hpp>
 
 /*
  * Class for synchronized ros-subscriber
@@ -28,42 +30,46 @@ namespace flex_sync
 // is-it-possible-to-typedef-a-parameter-pack
 template <typename SyncT, typename = typename SyncT::message_types>
 class LiveSync;
+
 // now partial specialization
 template <typename SyncT, typename... MsgTypes>
 class LiveSync<SyncT, MsgPack<MsgTypes...>>
 {
   // live topic class has the subscribers
-  template <class T>
+  template <typename T>
   class LiveTopic
   {
   public:
-    typedef std::shared_ptr<T const> TConstPtr;
+    using TConstSharedPtr = typename T::ConstSharedPtr;
+
     LiveTopic(
-      const std::string & topic, ros::NodeHandle & nh, unsigned int qs,
+      const std::string & topic, rclcpp::Node * node, unsigned int qs,
       const std::shared_ptr<SyncT> & sync)
     : topic_(topic), sync_(sync)
     {
-      sub_ = nh.subscribe(topic, qs, &LiveTopic::callback, this);
+      sub_ = node->create_subscription<T>(
+        topic, rclcpp::QoS(rclcpp::KeepLast(qs)),
+        std::bind(&LiveTopic::callback, this, std::placeholders::_1));
     }
-    void callback(TConstPtr const & msg) { sync_->process(topic_, msg); }
+    void callback(TConstSharedPtr msg) { sync_->process(topic_, msg); }
 
   private:
     std::string topic_;
     std::shared_ptr<SyncT> sync_;
-    ros::Subscriber sub_;
+    typename rclcpp::Subscription<T>::SharedPtr sub_;
   };
 
 public:
   using string = std::string;
   using Time = rclcpp::Time;
-  typedef std::tuple<std::vector<std::shared_ptr<LiveTopic<const MsgTypes>>>...>
+  typedef std::tuple<std::vector<std::shared_ptr<LiveTopic<MsgTypes>>>...>
     TupleOfTopicVec;
   typedef typename SyncT::Callback Callback;
 
   LiveSync(
-    const ros::NodeHandle & nh, const std::vector<std::vector<string>> & topics,
+    rclcpp::Node * node, const std::vector<std::vector<string>> & topics,
     const Callback & callback, unsigned int maxQueueSize = 5)
-  : nh_(nh)
+  : node_(node)
   {
     sync_.reset(new SyncT(topics, callback, maxQueueSize));
     // initialize topics
@@ -73,7 +79,7 @@ public:
 
   std::shared_ptr<SyncT> getSync() { return (sync_); }
 
-  ros::NodeHandle & getNodeHandle() { return (nh_); }
+  rclcpp::Node * getNode() { return (node_); }
 
 private:
   struct TopicInitializer
@@ -86,14 +92,14 @@ private:
       auto & topic_vec = std::get<I>(liveSync->topics_);
       // std::cout << "creating topic for " << I
       //<< " num: " << topics[I].size() << std::endl;
-      ros::NodeHandle & nh = liveSync->getNodeHandle();
+      auto node = liveSync->getNode();
       const unsigned int qs = sync->getQueueSize();
       for (const std::string & topic : topics[I]) {
         // get vector type-> pointer type -> pointer element type
         typedef
           typename get_type<I, TupleOfTopicVec>::type::value_type::element_type
             LiveTopicT;
-        std::shared_ptr<LiveTopicT> lt(new LiveTopicT(topic, nh, qs, sync));
+        std::shared_ptr<LiveTopicT> lt(new LiveTopicT(topic, node, qs, sync));
         topic_vec.push_back(lt);
       }
       return (topic_vec.size());
@@ -137,7 +143,7 @@ private:
   // -------------- variables -------------
   std::shared_ptr<SyncT> sync_;
   TupleOfTopicVec topics_;
-  ros::NodeHandle nh_;
+  rclcpp::Node * node_{nullptr};
 };
 
 }  // namespace flex_sync

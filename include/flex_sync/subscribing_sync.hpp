@@ -15,7 +15,7 @@
 
 #pragma once
 
-#include "flex_sync/sync.h"
+#include <flex_sync/sync.hpp>
 
 /*
  * Class for synchronized subscriber

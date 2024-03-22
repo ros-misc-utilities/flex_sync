@@ -16,6 +16,7 @@
 #ifndef FLEX_SYNC__APPROXIMATE_SYNC_HPP_
 #define FLEX_SYNC__APPROXIMATE_SYNC_HPP_
 
+#include <cassert>
 #include <deque>
 #include <flex_sync/msg_pack.hpp>
 #include <functional>
@@ -263,9 +264,8 @@ private:
   {
   public:
     CandidateBoundaryFinder()
-    : start_time_(
-        rclcpp::Time(std::numeric_limits<uint32_t>::max(), 999999999)),
-      end_time_(rclcpp::Time(0, 1))
+    : start_time_(rclcpp::Time::max(), RCL_ROS_TIME),
+      end_time_(rclcpp::Time(0, 0), RCL_ROS_TIME)
     {
     }
     template <std::size_t I>
@@ -284,13 +284,14 @@ private:
           throw std::runtime_error("empty deque found!");
         }
         const auto & m = deque.front();
-        const auto & t = m->header.stamp;
+        const auto t = rclcpp::Time(m->header.stamp);
         if (t < start_time_) {
           start_time_ = t;
           start_index_ = FullIndex(I, topicIdx);
         }
-        if (t > end_time_) {
+        if (!end_time_valid_ || t > end_time_) {
           end_time_ = t;
+          end_time_valid_ = true;
           end_index_ = FullIndex(I, topicIdx);
         }
         num_deques_found++;
@@ -307,6 +308,7 @@ private:
     rclcpp::Time start_time_;
     FullIndex end_index_;
     rclcpp::Time end_time_;
+    bool end_time_valid_{false};
   };
 
   // Assumes: all deques are non empty
@@ -329,9 +331,8 @@ private:
   {
   public:
     VirtualCandidateBoundaryFinder()
-    : start_time_(
-        rclcpp::Time(std::numeric_limits<uint32_t>::max(), 999999999)),
-      end_time_(rclcpp::Time(0, 1))
+    : start_time_(rclcpp::Time::max(), RCL_ROS_TIME),
+      end_time_(rclcpp::Time(0, 0), RCL_ROS_TIME)
     {
     }
 
@@ -350,12 +351,12 @@ private:
         rclcpp::Time virtual_time;
         if (deque.empty()) {
           assert(!past.empty());  // Because we have a candidate
-          const rclcpp::Time last_msg_time = past.back()->header.stamp;
+          const rclcpp::Time last_msg_time(past.back()->header.stamp);
           const rclcpp::Time msg_time_lower_bound =
             last_msg_time + ti.inter_message_lower_bound;
           virtual_time = std::max(msg_time_lower_bound, sync->pivot_time_);
         } else {
-          virtual_time = deque.front()->header.stamp;
+          virtual_time = rclcpp::Time(deque.front()->header.stamp);
         }
         if (virtual_time < start_time_) {
           start_time_ = virtual_time;
@@ -615,7 +616,7 @@ private:
         }
       }
       // INVARIANT: we have a candidate and pivot
-      ROS_ASSERT(pivot_.isValid());
+      assert(pivot_.isValid());
       if (start_index == pivot_) {
         // TODO(Bernd): replace with start_time == pivot_time_
         // We have exhausted all possible candidates for this pivot,
@@ -694,7 +695,7 @@ private:
     const auto & deque = topic_info.deque;
     const auto & v = topic_info.past;
     assert(!deque.empty());
-    const rclcpp::Time & msg_time = deque.back()->header.stamp;
+    const rclcpp::Time msg_time(deque.back()->header.stamp);
     rclcpp::Time previous_msg_time;
     if (deque.size() == static_cast<size_t>(1)) {
       if (v.empty()) {
@@ -702,7 +703,7 @@ private:
         // the previous message, we cannot check the bound
         return;
       }
-      previous_msg_time = v.back()->header.stamp;
+      previous_msg_time = rclcpp::Time(v.back()->header.stamp);
     } else {
       // There are at least 2 elements in the deque. Check that the gap
       // respects the bound if it was provided.
@@ -721,7 +722,7 @@ private:
         rclcpp::get_logger("approx_sync"),
         "Messages for " << topic << " arrived closer (" << diff.nanoseconds()
                         << ") than the lower bound you provided ("
-                        << topic_info.inter_message_lower_bound
+                        << topic_info.inter_message_lower_bound.nanoseconds()
                         << ") (will print only once)");
       topic_info.warned_about_incorrect_bound = true;
     }
@@ -741,10 +742,10 @@ private:
         auto & past = ti.past;
         rclcpp::Time dt, pt;
         if (!deque.empty()) {
-          dt = deque.back()->header.stamp;
+          dt = rclcpp::Time(deque.back()->header.stamp);
         }
         if (!past.empty()) {
-          pt = past.back()->header.stamp;
+          pt = rclcpp::Time(past.back()->header.stamp);
         }
         const int n = I * 3 + num_topics;  // XXX only right for 3 topics/type
         std::cout << n << " deque: " << deque.size() << " " << dt << std::endl;
@@ -797,7 +798,8 @@ private:
     {
       const auto & cand = std::get<I>(sync->candidate_);
       for (auto & msg : cand) {
-        std::cout << "cand: " << I << " " << msg->header.stamp << std::endl;
+        std::cout << "cand: " << I << " "
+                  << rclcpp::Time(msg->header.stamp).nanoseconds() << std::endl;
       }
       return (0);
     }
