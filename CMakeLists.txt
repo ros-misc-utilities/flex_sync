@@ -50,7 +50,7 @@ install(TARGETS
 
 install(DIRECTORY
   include/
-    DESTINATION ${CMAKE_INSTALL_INCLUDEDIR})
+    DESTINATION include)
 
 ament_export_targets(${PROJECT_NAME}_export HAS_LIBRARY_TARGET)
 ament_export_dependencies(rclcpp)
