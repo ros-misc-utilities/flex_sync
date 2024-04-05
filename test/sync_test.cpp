@@ -324,6 +324,32 @@ TEST(flex_sync, approx_live_sync)
   flex_sync::LiveSync<MySync> sync(&node, topics_2, cb2, 10);
 }
 
+// test template specialization for subscriber
+
+namespace flex_sync
+{
+template <typename SyncT>
+class Subscriber<SyncT, V3>
+{
+public:
+  Subscriber(
+    const std::string &, rclcpp::Node *, const rclcpp::QoS &,
+    const std::shared_ptr<SyncT> &)
+  {
+  }
+};
+}  // namespace flex_sync
+
+TEST(flex_sync, approx_live_sync_templated)
+{
+  CallbackTest cbt;
+  CallbackType2 cb2 = std::bind(
+    &CallbackTest::cb2, &cbt, std::placeholders::_1, std::placeholders::_2);
+  using MySync = flex_sync::ApproximateSync<V3, AS>;
+  rclcpp::Node node("test", rclcpp::NodeOptions());
+  flex_sync::LiveSync<MySync> sync(&node, topics_2, cb2, rclcpp::QoS(10));
+}
+
 int main(int argc, char ** argv)
 {
   testing::InitGoogleTest(&argc, argv);

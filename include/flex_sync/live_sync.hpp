@@ -13,64 +13,74 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-#pragma once
+#ifndef FLEX_SYNC__LIVE_SYNC_HPP_
+#define FLEX_SYNC__LIVE_SYNC_HPP_
 
 #include <flex_sync/msg_pack.hpp>
 #include <rclcpp/rclcpp.hpp>
 
-/*
- * Class for synchronized ros-subscriber
- */
+/* ------------------------------------------------
+* Replace or specialize this default template to
+* handle subscription to your liking
+*/
 
 namespace flex_sync
 {
+template <typename SyncT, typename T>
+class Subscriber
+{
+public:
+  using TConstSharedPtr = typename T::ConstSharedPtr;
+
+  Subscriber(
+    const std::string & topic, rclcpp::Node * node, const rclcpp::QoS & qos,
+    const std::shared_ptr<SyncT> & sync)
+  : topic_(topic), sync_(sync)
+  {
+    sub_ = node->create_subscription<T>(
+      topic, qos,
+      std::bind(&Subscriber::callback, this, std::placeholders::_1));
+  }
+  void callback(TConstSharedPtr msg) { sync_->process(topic_, msg); }
+
+private:
+  std::string topic_;
+  std::shared_ptr<SyncT> sync_;
+  typename rclcpp::Subscription<T>::SharedPtr sub_;
+};
+
+/* ------------------- HERE STARTS THE MAIN CLASS ------- */
+
 // use this trick to get to the parameter pack
 // https://stackoverflow.com/questions/22968182/
 // is-it-possible-to-typedef-a-parameter-pack
-template <typename SyncT, typename = typename SyncT::message_types>
+
+template <
+  typename SyncT,
+  template <typename, typename> typename SubscriberT = Subscriber,
+  typename = typename SyncT::message_types>
 class LiveSync;
 
 // now partial specialization
-template <typename SyncT, typename... MsgTypes>
-class LiveSync<SyncT, MsgPack<MsgTypes...>>
+template <
+  typename SyncT, template <typename, typename> typename SubscriberT,
+  typename... MsgTypes>
+class LiveSync<SyncT, SubscriberT, MsgPack<MsgTypes...>>
 {
-  // live topic class has the subscribers
-  template <typename T>
-  class LiveTopic
-  {
-  public:
-    using TConstSharedPtr = typename T::ConstSharedPtr;
-
-    LiveTopic(
-      const std::string & topic, rclcpp::Node * node, unsigned int qs,
-      const std::shared_ptr<SyncT> & sync)
-    : topic_(topic), sync_(sync)
-    {
-      sub_ = node->create_subscription<T>(
-        topic, rclcpp::QoS(rclcpp::KeepLast(qs)),
-        std::bind(&LiveTopic::callback, this, std::placeholders::_1));
-    }
-    void callback(TConstSharedPtr msg) { sync_->process(topic_, msg); }
-
-  private:
-    std::string topic_;
-    std::shared_ptr<SyncT> sync_;
-    typename rclcpp::Subscription<T>::SharedPtr sub_;
-  };
-
 public:
   using string = std::string;
   using Time = rclcpp::Time;
-  typedef std::tuple<std::vector<std::shared_ptr<LiveTopic<MsgTypes>>>...>
+  typedef std::tuple<
+    std::vector<std::shared_ptr<SubscriberT<SyncT, MsgTypes>>>...>
     TupleOfTopicVec;
   typedef typename SyncT::Callback Callback;
 
   LiveSync(
     rclcpp::Node * node, const std::vector<std::vector<string>> & topics,
-    const Callback & callback, unsigned int maxQueueSize = 5)
+    const Callback & callback, const rclcpp::QoS & qos)
   : node_(node)
   {
-    sync_.reset(new SyncT(topics, callback, maxQueueSize));
+    sync_.reset(new SyncT(topics, callback, std::max(size_t(5), qos.depth())));
     // initialize topics
     TopicInitializer ti;
     (void)for_each(topics_, &ti);
@@ -84,7 +94,7 @@ private:
   struct TopicInitializer
   {
     template <std::size_t I>
-    int operate(LiveSync<SyncT> * liveSync) const
+    int operate(LiveSync<SyncT, SubscriberT> * liveSync) const
     {
       std::shared_ptr<SyncT> sync = liveSync->getSync();
       auto & topics = sync->getTopics();
@@ -97,17 +107,19 @@ private:
         // get vector type-> pointer type -> pointer element type
         typedef
           typename get_type<I, TupleOfTopicVec>::type::value_type::element_type
-            LiveTopicT;
-        std::shared_ptr<LiveTopicT> lt(new LiveTopicT(topic, node, qs, sync));
+            SubscriberET;
+        std::shared_ptr<SubscriberET> lt(
+          new SubscriberET(topic, node, qs, sync));
         topic_vec.push_back(lt);
       }
       return (topic_vec.size());
     }
   };
 
-  // some neat template tricks picked up here:
+  // some template tricks picked up here:
   // https://stackoverflow.com/questions/18063451/get-index-of-a-tuple-elements -type
   // This template terminates the recursion
+
   template <std::size_t I = 0, typename FuncT, typename... Tp>
   inline typename std::enable_if<I == sizeof...(Tp), int>::type for_each(
     std::tuple<Tp...> &, FuncT *)  // Unused arg needs no name
@@ -123,6 +135,7 @@ private:
     const int rv = (*f).template operate<I>(this);
     return (rv + for_each<I + 1, FuncT, Tp...>(t, f));
   }
+
   // The following templates return the N'th type of a tuple.
   // source:
   // https://stackoverflow.com/questions/16928669/how-to-get-n-th-type-from-a-tuple
@@ -144,5 +157,6 @@ private:
   TupleOfTopicVec topics_;
   rclcpp::Node * node_{nullptr};
 };
-
 }  // namespace flex_sync
+
+#endif  // FLEX_SYNC__LIVE_SYNC_HPP_
