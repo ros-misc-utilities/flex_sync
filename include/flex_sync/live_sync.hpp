@@ -16,7 +16,6 @@
 #pragma once
 
 #include <flex_sync/msg_pack.hpp>
-#include <geometry_msgs/msg/vector3_stamped.hpp>
 #include <rclcpp/rclcpp.hpp>
 
 /*
