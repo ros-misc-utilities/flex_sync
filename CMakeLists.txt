@@ -22,9 +22,6 @@ add_compile_options(-Wall -Wextra -Wpedantic -Werror)
 
 # find dependencies
 find_package(ament_cmake REQUIRED)
-find_package(ament_cmake_ros REQUIRED)
-find_package(ament_cmake_auto REQUIRED)
-
 
 set(ament_dependencies
   "rclcpp")
