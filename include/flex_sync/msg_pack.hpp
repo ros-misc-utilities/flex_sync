@@ -15,15 +15,19 @@
 #ifndef FLEX_SYNC__MSG_PACK_HPP_
 #define FLEX_SYNC__MSG_PACK_HPP_
 
-/*
- * helper class for type deduction
- */
-
 namespace flex_sync
 {
+/**
+ * \cond HIDDEN_SYMBOLS
+ * Helper class for type deduction.
+ * See [this stack exchange page](https://stackoverflow.com/questions/18063451/get-index-of-a-tuple-elements-type).
+ */
 template <typename... Args>
 struct MsgPack
 {
-};  // for exposing message types
+};
+/**
+ * \endcond
+*/
 }  // namespace flex_sync
 #endif  // FLEX_SYNC__MSG_PACK_HPP_

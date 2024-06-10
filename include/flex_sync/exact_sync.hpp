@@ -36,6 +36,10 @@ namespace flex_sync
 template <typename... MsgTypes>
 class ExactSync
 {
+private:
+  /**
+  * \cond HIDDEN_SYMBOLS
+  */
   // CallbackArg has arguments of the callback as a tuple
   typedef std::tuple<std::vector<std::shared_ptr<const MsgTypes>>...>
     CallbackArg;
@@ -53,31 +57,40 @@ class ExactSync
   };
   typedef std::map<rclcpp::Time, std::shared_ptr<TimeSlot>> TimeToSlot;
   typedef std::tuple<TypeInfo<const MsgTypes>...> TupleOfTypeInfo;
+  /**
+  * \endcond
+  */
 
 public:
-  // Expose the message types
-  using message_types = MsgPack<MsgTypes...>;
-  // the signature of the callback function depends on the MsgTypes template
-  // parameter.
-  typedef std::function<void(
-    const std::vector<std::shared_ptr<const MsgTypes>> &...)>
-    Callback;
+  /** The type of callback to expect from this sync.
+   * A typical callback function signature would be
+   * ```
+   *     void foo(const std::vector<std::shared_ptr<const MsgType>> &vec1,
+   *              const std::vector<std::shared_ptr<const MsgType>> &vec2)
+   * ```
+   */
+  using Callback = std::function<void(
+    const std::vector<std::shared_ptr<const MsgTypes>> &...)>;
 
-  // create an exact sync like the one in ROS1, but with
-  // flexible number of topics per type.
-  // The callback signature looks different. For example
-  // for two message types, MsgType1 and MsgType2 (e.g sensor_msgs::Image)
-  // void callback_approx(
-  //    const std::vector<MsgType1::ConstPtr> &im,
-  //    const std::vector<MsgType2::ConstPtr> &ci);
-  // The first element of the topics argument must have all the topics
-  // for MsgType1, the second the topics for MsgType2
-  // queueSize == 0 means no queue size limit
-
+  /**
+  * Creates an exact sync like the one in ROS1, but with
+  *  flexible number of topics per type.
+  * \param topics vector of vector of topics, corresponding to message type.
+  *               The first vector has all topics for type 1, second for type 2 etc.
+  * \param cb callback to invoke when sync is obtained.
+  *           The callback signature looks different. For example
+  *           for two message types, MsgType1 and MsgType2
+  * ```
+  *           void callback(
+  *                  const std::vector<MsgType1::ConstPtr> &m1,
+  *                  const std::vector<MsgType2::ConstPtr> &m2);
+  * ```
+  * \param queue_size depth of sync queue. A ``queue_size`` of 0 means unlimited queue.
+  */
   ExactSync(
     const std::vector<std::vector<std::string>> & topics, Callback cb,
-    size_t queueSize)
-  : topics_(topics), cb_(cb), queue_size_(queueSize)
+    size_t queue_size)
+  : topics_(topics), cb_(cb), queue_size_(queue_size)
   {
     const size_t ntypes = sizeof...(MsgTypes);
     if (ntypes != topics.size()) {
@@ -92,28 +105,52 @@ public:
     (void)for_each(type_infos_, &tii);
   }
 
-  // returns total number of dropped messages since last clear
+  /**
+   * Query the number of messages dropped because they were not synced.
+   * \return total number of dropped messages since last
+   *         call to \ref clearNumberDropped()
+  */
   size_t getNumberDropped() const { return (num_dropped_); }
+
+  /**
+  * Clears number of dropped messages to zero. The number
+  * of dropped messages can be queried with \ref getNumberDropped().
+  */
   void clearNumberDropped() { num_dropped_ = 0; }
 
+  /**
+   * Get topics with which this sync was created.
+   * \return topics with which this sync was created.
+  */
   const std::vector<std::vector<std::string>> & getTopics() const
   {
     return (topics_);
   }
 
+  /**
+   * Query the sync queue size.
+   * \return size of sync queue
+  */
   size_t getQueueSize() const { return (queue_size_); }
 
-  // Call this method to feed data into the sync.
-  // The topic must match one of the topics that were
-  // provided when the sync was created or bad things will happen.
-  // Once enough data is available the callback function will
-  // be called.
+  /**
+   * Call this method to feed data into the sync. Once a sync
+   * is obtained (all topics have messages for a given time),
+   * the sync will invoke the callback function.
+   * 
+   * \param topic topic of the message to be processed. Must
+   *              be one of the topics provided when the sync
+   *              was created.
+   * \param msg shared pointer to message to be processed. Message
+   *            type must match positionally to topic used when
+   *            the sync was created.
+   */
   template <typename MsgPtrT>
   void process(const std::string & topic, const MsgPtrT msg)
   {
-    typedef TypeInfo<typename MsgPtrT::element_type const> TypeInfoT;
-    typedef std::vector<std::shared_ptr<typename MsgPtrT::element_type const>>
-      VecT;
+    using TypeInfoT = TypeInfo<typename MsgPtrT::element_type const>;
+    using VecT =
+      std::vector<std::shared_ptr<typename MsgPtrT::element_type const>>;
     const rclcpp::Time & t = msg->header.stamp;
     auto it = time_to_slot_.find(t);
     if (it == time_to_slot_.end()) {
@@ -156,8 +193,16 @@ public:
       }
     }
   }
+  /**
+   * Exposes the message types.
+  */
+  using message_types = MsgPack<MsgTypes...>;
 
 private:
+  /**
+  * \cond HIDDEN_SYMBOLS
+  */
+
   struct TopicIndexInitializer
   {
     template <std::size_t I>
@@ -221,6 +266,9 @@ private:
     const int rv = (*f).template operate<I>(this);
     return (rv + for_each<I + 1, FuncT, Tp...>(t, f));
   }
+  /**
+  * \endcond
+  */
 
   // ----------- variables -----------------------
   std::vector<std::vector<std::string>> topics_;  // topics to be synced

@@ -239,11 +239,12 @@ static void playMessages(T * sync, const std::vector<MsgInfo> & messages)
 TEST(flex_sync, exact_sync_simple_messages)
 {
   CallbackTest cbt;
-  CallbackType cb = std::bind(
-    &CallbackTest::cb3, &cbt, std::placeholders::_1, std::placeholders::_2,
-    std::placeholders::_3);
-
-  flex_sync::ExactSync<Dummy1, Dummy2, Dummy3> sync(topics_3, cb, 10);
+  flex_sync::ExactSync<Dummy1, Dummy2, Dummy3> sync(
+    topics_3,
+    std::bind(
+      &CallbackTest::cb3, &cbt, std::placeholders::_1, std::placeholders::_2,
+      std::placeholders::_3),
+    10);
   auto messages = make_simple_messages(0ULL, 10ULL, 1ULL, topics_3);
   playMessages(&sync, messages);
   EXPECT_EQ(cbt.getNumberOfCallbacks(), static_cast<size_t>(10));

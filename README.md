@@ -1,8 +1,8 @@
 # flex_sync
 
-This ROS2 package implements a message synchronization filter. It is similar to the
-well-known [message_filters](https://github.com/ros2/message_filters) package, but is
-more flexible in that the number of topics to be synchronized does not have to be known
+This ROS2 package with headers-only library that implements a message synchronization filter.
+It is similar to the well-known [message_filters](https://github.com/ros2/message_filters) package,
+but is more flexible in that the number of topics to be synchronized does not have to be known
 at compile time, just their message types. This can be useful when you don't know
 beforehand how many sensors of a given type will be on the robot.
 
@@ -28,14 +28,13 @@ Image messages and one Imu message:
         }
     };
     MyTest my_test; // instantiate object to handle synchronized callbacks
-    CallbackType cb = std::bind(  // bind to class member function
-        &MyTest::callback, &my_test, std::placeholders::_1, std::placeholders::_2);
-
     // synchronize two Image topics and one Imu topic
     const std::vector<std::vector<std::string>> topics =
        {{"image_topic_1", "image_topic_2"}, {"imu_topic_1"}};
     const size_t q_size = 10; // depth of sync queue
-    flex_sync::ExactSync<Image, Imu> sync(topics, cb, q_size);
+    flex_sync::ExactSync<Image, Imu> sync(topics,
+        std::bind(&MyTest::callback, &my_test, std::placeholders::_1, std::placeholders::_2),
+        q_size);
     // now feed images and IMU messages into the sync. If
     // the sync is successful there will be callbacks to MyTest::callback()
     sync->process("image_topic_1", std::make_shared<Image>()); // replace with valid message
