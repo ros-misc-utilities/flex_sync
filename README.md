@@ -9,6 +9,32 @@ beforehand how many sensors of a given type will be on the robot.
 Just like [message_filters](https://github.com/ros2/message_filters), ``flex_sync`` offers
 exact and approximate synchronization policies.
 
+This package is part of rosdistro. Build status:\
+[![Build Status](https://build.ros2.org/buildStatus/icon?job=Hdev__flex_sync__ubuntu_jammy_amd64&subject=Humble)](https://build.ros2.org/job/Hdev__flex_sync__ubuntu_jammy_amd64/)
+[![Build Status](https://build.ros2.org/buildStatus/icon?job=Jdev__flex_sync__ubuntu_noble_amd64&subject=Jazzy)](https://build.ros2.org/job/Jdev__flex_sync__ubuntu_noble_amd64/)
+[![Build Status](https://build.ros2.org/buildStatus/icon?job=Rdev__flex_sync__ubuntu_noble_amd64&subject=Rolling)](https://build.ros2.org/job/Rdev__flex_sync__ubuntu_noble_amd64/)
+
+
+## Installation
+
+### From packages
+
+```
+apt install ros-${ROS_DISTRO}-flex-sync
+```
+
+### From source
+
+The build instructions follow the standard procedure for ROS2. Set the following shell variables:
+
+```bash
+repo=flex_sync
+url=https://github.com/ros-misc-utilities/${repo}.git
+```
+and follow the ROS2 build instructions [here](https://github.com/ros-misc-utilities/.github/blob/master/docs/build_ros_repository.md)
+
+Make sure to source your workspace's ``install/setup.bash`` afterwards.
+
 ## How to use
 Here is code snippet that shows how to perform an exact synchronization between two
 Image messages and one Imu message:
