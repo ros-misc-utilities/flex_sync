@@ -81,8 +81,7 @@ if(BUILD_TESTING)
     $<BUILD_INTERFACE:${CMAKE_CURRENT_SOURCE_DIR}/include>
   $<INSTALL_INTERFACE:include>)
   target_compile_features(${SYNC_TEST} PRIVATE cxx_std_17)
-  ament_target_dependencies(${SYNC_TEST} std_msgs geometry_msgs rclcpp)
-  target_link_libraries(${SYNC_TEST} ${PROJECT_NAME})
+  target_link_libraries(${SYNC_TEST} ${std_msgs_TARGETS} ${geometry_msgs_TARGETS} rclcpp::rclcpp ${PROJECT_NAME})
 endif()
 
 ament_package()
