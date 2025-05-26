@@ -2,8 +2,8 @@
 Changelog for package flex_sync
 ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
 
-Forthcoming
------------
+2.0.1 (2025-05-26)
+------------------
 * avoid ament_target_dependencies
 * added status badge and install instructions
 * Contributors: Bernd Pfrommer
